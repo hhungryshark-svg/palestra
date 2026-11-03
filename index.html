@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0E7C66">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Scheda Palestra</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column, day tabs + Resoconto tab on top; one card per exercise with video link + reps/kg log */
+:root {
+  --bg: #EEF1EF;
+  --card: #FFFFFF;
+  --fg: #151917;
+  --muted: #5F6A65;
+  --line: #D5DCD8;
+  --accent: #0E7C66;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #DCEFEA;
+  --err: #B3261E;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0F1312; --card: #182020; --fg: #E8EEEB; --muted: #94A39D; --line: #2A3532;
+  --accent: #3CC4A3; --accent-ink: #062018; --accent-soft: #173A32; --err: #F2827A; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0F1312; --card: #182020; --fg: #E8EEEB; --muted: #94A39D; --line: #2A3532;
+  --accent: #3CC4A3; --accent-ink: #062018; --accent-soft: #173A32; --err: #F2827A; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.4; }
+.wrap { max-width: 640px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 48px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--display); font-size: 2rem; letter-spacing: .01em; margin: 0; text-transform: uppercase; }
+h2 { font-family: var(--display); font-size: 1.3rem; text-transform: uppercase; letter-spacing: .04em; margin: 0; }
+.date { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .9rem; }
+.date input, select { font: inherit; color: var(--fg); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+
+nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding-block: 12px; }
+nav button { font-family: var(--display); font-size: 1.05rem; text-transform: uppercase; letter-spacing: .03em; padding: 10px 0; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer; min-width: 0; }
+nav button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.list { display: flex; flex-direction: column; gap: 10px; }
+.ss { display: flex; flex-direction: column; gap: 6px; border-left: 3px solid var(--accent); padding-left: 8px; }
+.ss-label { font-family: var(--display); font-size: .85rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.ex, .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ex-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.ex-name { font-weight: 600; font-size: 1.05rem; min-width: 0; }
+.ex-note { color: var(--muted); font-size: .85rem; font-weight: 400; }
+.scheme { font-family: var(--display); font-size: 1.15rem; white-space: nowrap; background: var(--accent-soft); color: var(--fg); border-radius: 6px; padding: 1px 8px; font-variant-numeric: tabular-nums; }
+.videos { display: flex; flex-wrap: wrap; gap: 6px; }
+.videos a { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 5px 12px; font-size: .9rem; font-weight: 600; }
+.videos a svg { width: 14px; height: 14px; fill: currentColor; }
+.log { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.log label { display: flex; flex-direction: column; gap: 3px; font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.log input { font: 600 1.25rem/1.2 var(--display); letter-spacing: .06em; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; box-sizing: border-box; font-variant-numeric: tabular-nums; }
+.prev { font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.prev b { color: var(--fg); font-weight: 600; }
+.status { font-size: .8rem; color: var(--muted); min-height: 1.2em; margin-top: 4px; }
+.status.err { color: var(--err); }
+.help { color: var(--muted); font-size: .85rem; margin: 4px 0 0; }
+
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; min-width: 0; }
+.tile .k { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.tile .v { font: 700 1.8rem/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font: 17px var(--body); }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .bar { fill: var(--accent); }
+.chart .bar.cur { fill: var(--fg); }
+.chart .lineK { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.chart .dotK { fill: var(--accent); }
+.chart .area { fill: var(--accent-soft); }
+.chart .val { fill: var(--fg); font-weight: 600; }
+.empty { color: var(--muted); font-size: .9rem; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.panel-head select { max-width: 100%; }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 500; color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+td { padding: 6px; border-bottom: 1px solid var(--line); }
+td.num, th.num { text-align: right; white-space: nowrap; }
+.up { color: var(--accent); font-weight: 600; }
+.tbl { overflow-x: auto; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { font: 600 .95rem var(--body); padding: 8px 14px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.small { padding: 6px 12px; font-size: .9rem; }
+.btn.dirty::after { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--err); margin-left: 6px; vertical-align: middle; }
+.head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 12px; }
+.steps .btns { margin-top: 6px; }
+#syncPanel { margin-top: 8px; }
+@media (max-width: 380px) { nav button { font-size: .95rem; } .tile .v { font-size: 1.5rem; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Scheda Palestra</h1>
+    <div class="head-actions">
+      <label class="date">Giorno <input type="date" id="date"></label>
+      <button class="btn ghost small" id="installBtn" hidden>Installa app</button>
+      <button class="btn small" id="syncBtn">Sincronizza</button>
+    </div>
+  </header>
+  <p class="help">Reps: una cifra per serie (3×8 con ultima a 6 → <b>886</b>; con 10 o più usa gli spazi: <b>12 10 10</b>). Kg: il carico usato.</p>
+  <div class="status" id="status">Caricamento dati…</div>
+  <section class="panel" id="syncPanel" hidden>
+    <div class="panel-head"><h2>Sincronizza con il NAS</h2><button class="btn ghost small" id="syncClose">Chiudi</button></div>
+    <div id="syncBody"></div>
+    <div class="status" id="syncMsg"></div>
+    <div class="ex-note" id="syncInfo"></div>
+  </section>
+  <nav role="tablist" id="tabs"></nav>
+  <main class="list" id="list"></main>
+</div>
+
+<script>
+const PLAN = {
+  lun: { name: "Lun", full: "Lunedì", items: [
+    { id: "l-chestpress", n: "Chest press", s: "3×8", v: [["Chest press", "chest press machine esecuzione corretta"]] },
+    { id: "l-chestfly", n: "Chest fly", s: "2×8", v: [["Chest fly", "chest fly machine pec deck esecuzione"]] },
+    { id: "l-pushdips", n: "Push up + dips", s: "6/8 + max", v: [["Push up", "push up esecuzione corretta"], ["Dips", "dips parallele esecuzione corretta"]] },
+    { id: "l-ohext", n: "Overhead extension", note: "tricipite", s: "3×8/10", v: [["Video", "overhead triceps extension cable"]] },
+    { ss: [
+      { id: "l-alzlat", n: "Alzate laterali", s: "3×10/12", v: [["Video", "alzate laterali manubri esecuzione corretta"]] },
+      { id: "l-panca60", n: "Panca 60 alzate verticali", note: "gomito sotto spalla a 90°", s: "2×8", v: [["Video", "incline bench 60 degree dumbbell shoulder press"]] }
+    ]},
+    { id: "l-addome", n: "Addome isometrie", note: "tenuta 8 sec · 2,5 kg", s: "12 reps", v: [["Video", "weighted isometric crunch hold"]] },
+    { id: "l-plank", n: "Plank + uovo", note: "prisoner v-ups", s: "10 reps", v: [["Plank", "plank esecuzione corretta"], ["Prisoner v-up", "prisoner v up abs exercise"]] }
+  ]},
+  mer: { name: "Mer", full: "Mercoledì", items: [
+    { id: "m-stacco", n: "Stacco", note: "6 all'80%, poi 3×6", s: "6 + 3×6", v: [["Video", "stacco da terra esecuzione corretta"]] },
+    { id: "m-legcurl", n: "Leg curl sdraiato", s: "3×8/10", v: [["Video", "lying leg curl machine form"]] },
+    { id: "m-legpress", n: "Leg press piedi in alto", s: "3×10", v: [["Video", "leg press piedi alti glutei"]] },
+    { ss: [
+      { id: "m-lat", n: "Lat machine", s: "3×8", v: [["Video", "lat machine esecuzione corretta"]] },
+      { id: "m-vrow", n: "V row", s: "3×8", v: [["Video", "seated cable row v grip form"]] }
+    ]},
+    { id: "m-curlcavo", n: "Curl cavo basso", s: "3×8", v: [["Video", "curl bicipiti cavo basso esecuzione"]] },
+    { id: "m-panca30bic", n: "Panca 30 bicipiti", s: "3×8", v: [["Video", "incline dumbbell curl form"]] }
+  ]},
+  ven: { name: "Ven", full: "Venerdì", items: [
+    { id: "v-panca30", n: "Panca 30 spinte in alto", s: "3×8", v: [["Video", "incline dumbbell press 30 degrees form"]] },
+    { id: "v-chestfly", n: "Chest fly", s: "3×8", v: [["Video", "chest fly machine pec deck esecuzione"]] },
+    { id: "v-military", n: "Military press", s: "3×10", v: [["Video", "military press bilanciere esecuzione corretta"]] },
+    { id: "v-alzlat60", n: "Alzate laterali panca 60", s: "3×8", v: [["Video", "incline bench lateral raise"]] },
+    { ss: [
+      { id: "v-pushdown", n: "Push down", note: "tricipiti", s: "3×8", v: [["Video", "triceps pushdown cavo esecuzione"]] },
+      { id: "v-french", n: "Tricipiti panca piana EZ", note: "french press", s: "3×8", v: [["Video", "french press bilanciere ez panca piana"]] }
+    ]},
+    { id: "v-hanging", n: "Hanging knee to chest", s: "2×max", v: [["Video", "hanging knee raise form"]] },
+    { id: "v-plankobl", n: "Plank obliquo + barchetta", note: "45s + 30s, fino a 1 min", s: "tempo", v: [["Plank obliquo", "side plank esecuzione"], ["Barchetta", "hollow body hold esercizio"]] }
+  ]},
+  sab: { name: "Sab", full: "Sabato", items: [
+    { id: "s-pressa", n: "Pressa piedi in basso / squat", note: "squat: 2×6/8 + 1×8/10", s: "3×8", v: [["Pressa", "leg press piedi bassi quadricipiti"], ["Squat", "squat bilanciere esecuzione corretta"]] },
+    { id: "s-legext", n: "Leg extension", s: "4×8", v: [["Video", "leg extension esecuzione corretta"]] },
+    { id: "s-bulgarian", n: "Bulgarian squat", s: "4×6", v: [["Video", "bulgarian split squat form"]] },
+    { id: "s-pulley", n: "Pulley cavo / row T-bar", s: "3×8", v: [["Pulley", "pulley basso esecuzione corretta"], ["T-bar row", "t bar row form"]] },
+    { id: "s-rematore", n: "Rematore bilanciere", note: "focus gran dorsale", s: "3×6+", v: [["Video", "rematore bilanciere gran dorsale"]] },
+    { id: "s-trazioni", n: "Trazioni presa supina", note: "bicipiti", s: "max", v: [["Video", "chin up presa supina esecuzione"]] },
+    { id: "s-curlhammer", n: "Curl to hammer curl", note: "3 sec in discesa", s: "4×8", v: [["Video", "curl to hammer curl"]] },
+    { id: "s-addome", n: "Addome isometrie", note: "tenuta 8 sec · 2,5 kg", s: "12 reps", v: [["Video", "weighted isometric crunch hold"]] },
+    { id: "s-plank", n: "Plank + uovo", note: "prisoner v-ups", s: "10 reps", v: [["Plank", "plank esecuzione corretta"], ["Prisoner v-up", "prisoner v up abs exercise"]] }
+  ]}
+};
+const TABS = { ...Object.fromEntries(Object.entries(PLAN).map(([k, d]) => [k, d.name])), resoconto: "Stats" };
+const EXS = {};  // exId -> { ex, dayKey }
+for (const [dk, d] of Object.entries(PLAN)) for (const it of d.items) for (const ex of (it.ss || [it])) EXS[ex.id] = { ex, dayKey: dk };
+
+const PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+const $ = (id) => document.getElementById(id);
+const statusEl = $("status");
+const logs = {};          // exId -> { "YYYY-MM-DD": { r, kg } }
+let tab = null;
+let chartEx = null;
+
+function todayKey(d = new Date()) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+const WD = { 1: "lun", 3: "mer", 5: "ven", 6: "sab" };
+function dayForDate(key) { return WD[new Date(key + "T12:00").getDay()] || null; }
+function nextTrainingDay(key) {
+  const d = new Date(key + "T12:00");
+  for (let i = 0; i < 7; i++) { const k = WD[(d.getDay() + i) % 7]; if (k) return k; }
+  return "lun";
+}
+function fmtDate(key) { const [, m, d] = key.split("-"); return d + "/" + m; }
+function setStatus(t, err) { statusEl.textContent = t; statusEl.classList.toggle("err", !!err); }
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function has(e) { return e && (e.r || e.kg); }
+
+// "886" -> [8,8,6]; "12 10 10" -> [12,10,10]; "121010" -> [12,10,10]
+function parseReps(s) {
+  s = String(s || "").trim();
+  if (!s) return [];
+  if (/[^0-9]/.test(s)) return s.split(/[^0-9]+/).filter(Boolean).map(Number);
+  const out = [];
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "1" && i + 1 < s.length && s.length > 1) { out.push(Number(s.slice(i, i + 2))); i++; }
+    else out.push(Number(s[i]));
+  }
+  return out;
+}
+function kgNum(s) { const n = parseFloat(String(s || "").replace(",", ".")); return isFinite(n) ? n : null; }
+function weekStart(key) {
+  const d = new Date(key + "T12:00");
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return todayKey(d);
+}
+
+const dateEl = $("date");
+dateEl.value = todayKey();
+const hash = location.hash.slice(1).toLowerCase();
+tab = TABS[hash] ? hash : (dayForDate(dateEl.value) || nextTrainingDay(dateEl.value));
+
+function selectTab(k) {
+  tab = k;
+  try { history.replaceState(null, "", "#" + k); } catch (e) {}
+  renderTabs(); render(); window.scrollTo({ top: 0 });
+}
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  for (const [k, label] of Object.entries(TABS)) {
+    const b = document.createElement("button");
+    b.id = "tab-" + k; b.setAttribute("role", "tab"); b.textContent = label;
+    b.setAttribute("aria-selected", k === tab);
+    b.onclick = () => selectTab(k);
+    $("tabs").appendChild(b);
+  }
+}
+
+function prevText(exId) {
+  const h = logs[exId] || {};
+  const cur = dateEl.value;
+  const past = Object.keys(h).filter((k) => k < cur && has(h[k])).sort().reverse().slice(0, 3);
+  if (!past.length) return "Nessuna sessione precedente";
+  return "Prima: " + past.map((k) => `<b>${esc(h[k].r || "–")}</b>${h[k].kg ? " · " + esc(h[k].kg) + " kg" : ""} <span>(${fmtDate(k)})</span>`).join(" &nbsp; ");
+}
+
+function card(ex) {
+  const el = document.createElement("section");
+  el.className = "ex";
+  const cur = (logs[ex.id] || {})[dateEl.value] || {};
+  el.innerHTML = `
+    <div class="ex-top">
+      <div class="ex-name">${esc(ex.n)}${ex.note ? `<div class="ex-note">${esc(ex.note)}</div>` : ""}</div>
+      <span class="scheme">${esc(ex.s)}</span>
+    </div>
+    <div class="videos">${ex.v.map(([l, q]) => `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(q)}" target="_blank" rel="noopener">${PLAY}${esc(l)}</a>`).join("")}</div>
+    <div class="log">
+      <label>Reps per serie<input id="r-${ex.id}" inputmode="numeric" autocomplete="off" placeholder="es. 886" value="${esc(cur.r || "")}"></label>
+      <label>Carico (kg)<input id="kg-${ex.id}" inputmode="decimal" autocomplete="off" placeholder="es. 40" value="${esc(cur.kg || "")}"></label>
+    </div>
+    <div class="prev" id="p-${ex.id}">${prevText(ex.id)}</div>`;
+  for (const f of ["r", "kg"]) {
+    const inp = el.querySelector(`#${f}-${CSS.escape(ex.id)}`);
+    inp.addEventListener("input", () => {
+      const k = dateEl.value;
+      logs[ex.id] = logs[ex.id] || {};
+      logs[ex.id][k] = { ...(logs[ex.id][k] || {}), [f]: inp.value.trim(), t: Date.now() };
+      queueSave(ex.id);
+    });
+  }
+  return el;
+}
+
+function renderDay() {
+  const list = $("list");
+  list.innerHTML = "";
+  for (const it of PLAN[tab].items) {
+    if (it.ss) {
+      const g = document.createElement("div");
+      g.className = "ss";
+      g.innerHTML = '<div class="ss-label">Superserie</div>';
+      it.ss.forEach((ex) => g.appendChild(card(ex)));
+      list.appendChild(g);
+    } else list.appendChild(card(it));
+  }
+}
+
+// ---------- Resoconto ----------
+function entries() {
+  const out = [];
+  for (const [exId, h] of Object.entries(logs)) {
+    if (!EXS[exId]) continue;
+    for (const [date, e] of Object.entries(h)) if (has(e)) {
+      const reps = parseReps(e.r).reduce((a, b) => a + b, 0);
+      const kg = kgNum(e.kg);
+      out.push({ exId, date, reps, kg, vol: kg ? reps * kg : 0 });
+    }
+  }
+  return out;
+}
+
+function barChart(data) {  // [{label, value, cur}]
+  const W = 600, H = 230, L = 58, R = 8, T = 18, B = 26;
+  const max = Math.max(1, ...data.map((d) => d.value));
+  const step = niceStep(max / 3);
+  const top = Math.ceil(max / step) * step;
+  const y = (v) => T + (H - T - B) * (1 - v / top);
+  const bw = (W - L - R) / data.length;
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Volume settimanale">`;
+  for (let v = 0; v <= top; v += step) s += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${fmtNum(v)}</text>`;
+  data.forEach((d, i) => {
+    const x = L + i * bw + bw * 0.18, w = bw * 0.64;
+    if (d.value > 0) s += `<rect class="bar${d.cur ? " cur" : ""}" x="${x}" y="${y(d.value)}" width="${w}" height="${y(0) - y(d.value)}" rx="3"/>`;
+    if (d.value > 0 && (d.cur || i === data.length - 1 || d.value === max)) s += `<text class="val" x="${x + w / 2}" y="${y(d.value) - 5}" text-anchor="middle">${fmtNum(d.value)}</text>`;
+    s += `<text x="${x + w / 2}" y="${H - 8}" text-anchor="middle">${d.label}</text>`;
+  });
+  return s + "</svg>";
+}
+function lineChart(pts, unit) {  // [{label, value}]
+  const W = 600, H = 230, L = 58, R = 16, T = 20, B = 26;
+  const vals = pts.map((p) => p.value);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (lo === hi) { lo = Math.max(0, lo - 5); hi = hi + 5; }
+  const step = niceStep((hi - lo) / 3);
+  lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+  const x = (i) => pts.length === 1 ? (L + W - R) / 2 : L + (W - L - R) * i / (pts.length - 1);
+  const y = (v) => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Andamento ${unit}">`;
+  for (let v = lo; v <= hi + 1e-9; v += step) s += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${fmtNum(v)}</text>`;
+  const line = pts.map((p, i) => `${x(i)},${y(p.value)}`).join(" ");
+  if (pts.length > 1) s += `<polygon class="area" points="${x(0)},${y(lo)} ${line} ${x(pts.length - 1)},${y(lo)}"/><polyline class="lineK" points="${line}"/>`;
+  const every = Math.ceil(pts.length / 6);
+  pts.forEach((p, i) => {
+    const last = i === pts.length - 1;
+    s += `<circle class="dotK" cx="${x(i)}" cy="${y(p.value)}" r="${last ? 5 : 3}"/>`;
+    if (i % every === 0 || last) s += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${p.label}</text>`;
+  });
+  const lp = pts[pts.length - 1];
+  s += `<text class="val" x="${x(pts.length - 1)}" y="${y(lp.value) - 9}" text-anchor="${pts.length > 1 ? "end" : "middle"}">${fmtNum(lp.value)} ${unit}</text>`;
+  return s + "</svg>";
+}
+function niceStep(raw) {
+  if (raw <= 0) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / p;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
+}
+function fmtNum(v) { return v >= 10000 ? (v / 1000).toFixed(v >= 100000 ? 0 : 1).replace(".", ",") + "k" : String(Math.round(v * 10) / 10).replace(".", ","); }
+
+function renderStats() {
+  const list = $("list");
+  const all = entries();
+  const dates = [...new Set(all.map((e) => e.date))].sort();
+  const thisWeek = weekStart(todayKey());
+  const weekSessions = dates.filter((d) => weekStart(d) === thisWeek).length;
+
+  // weekly volume, last 8 weeks
+  const weeks = [];
+  const d0 = new Date(thisWeek + "T12:00");
+  for (let i = 7; i >= 0; i--) { const d = new Date(d0); d.setDate(d.getDate() - 7 * i); weeks.push(todayKey(d)); }
+  const volBy = {};
+  for (const e of all) volBy[weekStart(e.date)] = (volBy[weekStart(e.date)] || 0) + e.vol;
+  const weekData = weeks.map((w) => ({ label: fmtDate(w), value: Math.round(volBy[w] || 0), cur: w === thisWeek }));
+
+  // per-exercise table
+  const rows = [];
+  for (const id of Object.keys(EXS)) {
+    const h = logs[id] || {};
+    const ds = Object.keys(h).filter((k) => has(h[k])).sort();
+    if (!ds.length) continue;
+    const kgs = ds.map((k) => kgNum(h[k].kg)).filter((v) => v != null);
+    const first = kgs[0], best = kgs.length ? Math.max(...kgs) : null;
+    rows.push({ id, last: ds[ds.length - 1], lastE: h[ds[ds.length - 1]], best, diff: kgs.length > 1 ? best - first : 0, n: ds.length });
+  }
+  if (!chartEx || !rows.some((r) => r.id === chartEx)) chartEx = rows.length ? rows.sort((a, b) => b.n - a.n)[0].id : null;
+  rows.sort((a, b) => Object.keys(EXS).indexOf(a.id) - Object.keys(EXS).indexOf(b.id));
+
+  let exChart = '<p class="empty">Segna reps e kg di un esercizio per vedere il suo andamento.</p>';
+  if (chartEx) {
+    const h = logs[chartEx];
+    const ds = Object.keys(h).filter((k) => has(h[k])).sort();
+    const kgPts = ds.filter((k) => kgNum(h[k].kg) != null).map((k) => ({ label: fmtDate(k), value: kgNum(h[k].kg) }));
+    const repPts = ds.map((k) => ({ label: fmtDate(k), value: parseReps(h[k].r).reduce((a, b) => a + b, 0) })).filter((p) => p.value > 0);
+    exChart = (kgPts.length ? `<div class="ex-note">Carico (kg)</div>${lineChart(kgPts, "kg")}` : "")
+      + (repPts.length ? `<div class="ex-note">Ripetizioni totali</div>${lineChart(repPts, "reps")}` : "");
+  }
+
+  list.innerHTML = `
+    <div class="tiles">
+      <div class="tile"><div class="k">Questa settimana</div><div class="v">${weekSessions}/4</div></div>
+      <div class="tile"><div class="k">Allenamenti</div><div class="v">${dates.length}</div></div>
+      <div class="tile"><div class="k">Ultimo</div><div class="v">${dates.length ? fmtDate(dates[dates.length - 1]) : "–"}</div></div>
+    </div>
+    <section class="panel">
+      <h2>Volume settimanale</h2>
+      <div class="ex-note">Ripetizioni × kg sommati su tutti gli esercizi, settimane da lunedì</div>
+      ${all.length ? barChart(weekData) : '<p class="empty">Ancora nessun dato. Il grafico si riempie quando segni i primi allenamenti.</p>'}
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Andamento esercizio</h2>
+        ${rows.length ? `<select id="exsel" aria-label="Esercizio">${rows.map((r) => `<option value="${r.id}"${r.id === chartEx ? " selected" : ""}>${esc(PLAN[EXS[r.id].dayKey].name + " · " + EXS[r.id].ex.n)}</option>`).join("")}</select>` : ""}
+      </div>
+      ${exChart}
+    </section>
+    <section class="panel">
+      <h2>Record e progressi</h2>
+      ${rows.length ? `<div class="tbl"><table>
+        <thead><tr><th>Esercizio</th><th class="num">Ultima</th><th class="num">Max kg</th><th class="num">Dall'inizio</th></tr></thead>
+        <tbody>${rows.map((r) => `<tr><td>${esc(EXS[r.id].ex.n)} <span class="ex-note">${PLAN[EXS[r.id].dayKey].name}</span></td>
+          <td class="num">${esc(r.lastE.r || "–")}${r.lastE.kg ? " · " + esc(r.lastE.kg) : ""}</td>
+          <td class="num">${r.best != null ? fmtNum(r.best) : "–"}</td>
+          <td class="num ${r.diff > 0 ? "up" : ""}">${r.diff > 0 ? "+" + fmtNum(r.diff) + " kg" : "–"}</td></tr>`).join("")}</tbody>
+      </table></div>` : '<p class="empty">Qui compariranno il carico massimo e quanto sei migliorato per ogni esercizio.</p>'}
+    </section>`;
+  const sel = $("exsel");
+  if (sel) sel.onchange = () => { chartEx = sel.value; renderStats(); };
+}
+
+function render() { tab === "resoconto" ? renderStats() : renderDay(); }
+
+// ---------- Storage on this device ----------
+const KEY = "scheda-logs", META = "scheda-sync", FILE = "palestra-dati.json";
+try { Object.assign(logs, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+function persist() {
+  try { localStorage.setItem(KEY, JSON.stringify(logs)); return true; }
+  catch (e) { setStatus("Non riesco a salvare sul dispositivo (memoria piena o bloccata).", true); return false; }
+}
+let saveTimer;
+function queueSave() {
+  clearTimeout(saveTimer);
+  setStatus("Salvataggio…");
+  saveTimer = setTimeout(() => { if (persist()) setStatus("Salvato sul dispositivo ✓"); refreshSyncInfo(); }, 400);
+}
+function syncMeta() { try { return JSON.parse(localStorage.getItem(META) || "{}"); } catch (e) { return {}; } }
+function markSynced() { try { localStorage.setItem(META, JSON.stringify({ last: Date.now() })); } catch (e) {} refreshSyncInfo(); }
+function unsynced() {
+  const last = syncMeta().last || 0;
+  let n = 0;
+  for (const h of Object.values(logs)) for (const e of Object.values(h)) if ((e.t || 0) > last) n++;
+  return n;
+}
+function fmtStamp(ms) {
+  const d = new Date(ms);
+  return fmtDate(todayKey(d)) + " alle " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+
+// ---------- Sync with the NAS file ----------
+// Each entry carries t (last edit time); on merge the newer one wins, so nothing is lost.
+function merge(incoming) {
+  let changed = 0;
+  for (const [id, h] of Object.entries(incoming || {})) {
+    if (!EXS[id] || !h || typeof h !== "object") continue;
+    logs[id] = logs[id] || {};
+    for (const [d, e] of Object.entries(h)) {
+      if (!e || typeof e !== "object" || !/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      const mine = logs[id][d];
+      if (!mine || (e.t || 0) > (mine.t || 0)) { logs[id][d] = { r: String(e.r || ""), kg: String(e.kg || ""), t: Number(e.t) || 0 }; changed++; }
+    }
+  }
+  return changed;
+}
+function fileJson() { return JSON.stringify({ app: "scheda-palestra", v: 2, savedAt: new Date().toISOString(), logs }); }
+function parseFile(text) {
+  const d = JSON.parse(text);
+  if (!d || d.app !== "scheda-palestra" || typeof d.logs !== "object") throw new Error("bad_file");
+  return d.logs;
+}
+
+const canPickFile = typeof window.showSaveFilePicker === "function";
+function idb(op, val) {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("palestra", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("kv");
+    r.onerror = () => rej(r.error);
+    r.onsuccess = () => {
+      const st = r.result.transaction("kv", op === "get" ? "readonly" : "readwrite").objectStore("kv");
+      const q = op === "get" ? st.get("nas") : st.put(val, "nas");
+      q.onsuccess = () => res(q.result);
+      q.onerror = () => rej(q.error);
+    };
+  });
+}
+
+// PC (Chrome/Edge): remember the NAS file, then read + merge + write in one click
+async function syncPC(choose) {
+  let h = choose ? null : await idb("get").catch(() => null);
+  if (!h) {
+    h = await window.showSaveFilePicker({ suggestedName: FILE, types: [{ description: "Dati palestra", accept: { "application/json": [".json"] } }] });
+    await idb("put", h).catch(() => {});
+  }
+  if ((await h.queryPermission({ mode: "readwrite" })) !== "granted" &&
+      (await h.requestPermission({ mode: "readwrite" })) !== "granted") throw new Error("no_permission");
+  const text = await (await h.getFile()).text();
+  const n = text.trim() ? merge(parseFile(text)) : 0;
+  persist();
+  const w = await h.createWritable();
+  await w.write(fileJson());
+  await w.close();
+  return n;
+}
+
+// Phone: step 1 read the NAS file, step 2 save the merged file back
+async function importFile(file) {
+  const n = merge(parseFile(await file.text()));
+  persist();
+  return n;
+}
+async function exportFile() {
+  const file = new File([fileJson()], FILE, { type: "application/json" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    await navigator.share({ files: [file], title: FILE });
+    return "share";
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(file);
+  a.download = FILE;
+  document.body.appendChild(a); a.click(); a.remove();
+  return "download";
+}
+
+function syncMsg(t, err) { const el = $("syncMsg"); el.textContent = t; el.classList.toggle("err", !!err); }
+function refreshSyncInfo() {
+  const last = syncMeta().last;
+  const n = unsynced();
+  $("syncInfo").textContent = (last ? "Ultima sincronizzazione: " + fmtStamp(last) + ". " : "Mai sincronizzato. ") +
+    (n ? n + (n === 1 ? " modifica da sincronizzare." : " modifiche da sincronizzare.") : "Tutto sincronizzato.");
+  $("syncBtn").classList.toggle("dirty", n > 0);
+}
+function renderSync() {
+  const body = $("syncBody");
+  if (canPickFile) {
+    body.innerHTML = `
+      <p class="ex-note">Un clic: legge il file sul NAS, unisce i dati con quelli di questo computer e lo aggiorna.</p>
+      <div class="btns"><button class="btn" id="syncGo">Sincronizza ora</button><button class="btn ghost" id="syncPick">Scegli un altro file</button></div>
+      <p class="ex-note">La prima volta si apre una finestra: vai nella cartella <b>DRIVE › App palestra</b> sul NAS e salva come <b>${FILE}</b>. Se il file esiste già conferma "Sostituisci": i dati vengono prima letti e uniti, non si perde niente.</p>`;
+    const run = async (choose) => {
+      syncMsg("Sincronizzazione…");
+      try { const n = await syncPC(choose); markSynced(); render(); syncMsg("Fatto ✓ " + (n ? n + " dati nuovi presi dal NAS." : "Il NAS è aggiornato.")); }
+      catch (e) {
+        if (e && e.name === "AbortError") return syncMsg("Annullato.");
+        if (e && e.message === "bad_file") return syncMsg("Quel file non è " + FILE + ". Scegli il file giusto con \"Scegli un altro file\".", true);
+        syncMsg("Non riesco a raggiungere il file. Sei a casa e il NAS è collegato? Riprova o scegli di nuovo il file.", true);
+      }
+    };
+    $("syncGo").onclick = () => run(false);
+    $("syncPick").onclick = () => run(true);
+  } else {
+    body.innerHTML = `
+      <ol class="steps">
+        <li><b>Prendi i dati dal NAS.</b> Tocca il pulsante e scegli <b>${FILE}</b> (cartella DRIVE › App palestra). La prima volta salta questo passo.
+          <div class="btns"><button class="btn ghost" id="syncIn">1 · Prendi dal NAS</button><input type="file" id="syncFile" accept=".json,application/json" hidden></div></li>
+        <li><b>Salva sul NAS.</b> Tocca il pulsante, scegli <b>CX File Explorer</b> e salva nella stessa cartella sostituendo il file vecchio.
+          <div class="btns"><button class="btn" id="syncOut">2 · Salva sul NAS</button></div></li>
+      </ol>
+      <p class="ex-note">Se il NAS non compare quando scegli il file: apri CX File Explorer e copia ${FILE} dal NAS nella cartella Download, poi riprova. Se CX non compare al passo 2, il file finisce in Download: spostalo nel NAS con CX.</p>`;
+    $("syncIn").onclick = () => $("syncFile").click();
+    $("syncFile").onchange = async (ev) => {
+      const f = ev.target.files[0]; ev.target.value = "";
+      if (!f) return;
+      try { const n = await importFile(f); render(); syncMsg("Passo 1 fatto ✓ " + (n ? n + " dati nuovi presi dal NAS." : "Niente di nuovo sul NAS.") + " Ora tocca 2 · Salva sul NAS."); }
+      catch (e) { syncMsg("Quel file non è " + FILE + ". Scegli il file giusto.", true); }
+    };
+    $("syncOut").onclick = async () => {
+      try { const how = await exportFile(); markSynced(); syncMsg(how === "share" ? "Fatto ✓ Controlla di averlo salvato nella cartella del NAS." : "File salvato in Download. Spostalo nella cartella del NAS con CX File Explorer."); }
+      catch (e) { syncMsg(e && e.name === "AbortError" ? "Annullato: il NAS non è aggiornato." : "Non riesco a creare il file.", true); }
+    };
+  }
+}
+$("syncBtn").onclick = () => { const p = $("syncPanel"); p.hidden = !p.hidden; if (!p.hidden) { renderSync(); syncMsg(""); refreshSyncInfo(); } };
+$("syncClose").onclick = () => { $("syncPanel").hidden = true; };
+
+dateEl.addEventListener("change", () => {
+  if (!dateEl.value) dateEl.value = todayKey();
+  const d = dayForDate(dateEl.value);
+  if (d && tab !== "resoconto") tab = d;
+  renderTabs(); render();
+});
+
+// ---------- Install + offline ----------
+let installEvt = null;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; $("installBtn").hidden = false; });
+$("installBtn").onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; $("installBtn").hidden = true; };
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+// When the app comes back to the screen on a new day, jump to that day
+let shownToday = todayKey();
+function checkNewDay() {
+  const now = todayKey();
+  if (now === shownToday) return;
+  const wasToday = dateEl.value === shownToday;
+  shownToday = now;
+  if (!wasToday) return;
+  dateEl.value = now;
+  if (tab !== "resoconto") tab = dayForDate(now) || nextTrainingDay(now);
+  renderTabs(); render();
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkNewDay(); });
+window.addEventListener("focus", checkNewDay);
+setInterval(checkNewDay, 60000);
+
+renderTabs();
+render();
+refreshSyncInfo();
+setStatus(location.protocol === "file:" ? "Aperta da file: i dati restano su questo computer." : "Pronto. I dati si salvano sul dispositivo.");
+</script>
+
+</body>
+</html>
