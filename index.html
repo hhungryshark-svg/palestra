@@ -99,6 +99,7 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 .steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 12px; }
 .steps .btns { margin-top: 6px; }
 #syncPanel { margin-top: 8px; }
+.panel.demo { border-color: var(--accent); background: var(--accent-soft); }
 @media (max-width: 380px) { nav button { font-size: .95rem; } .tile .v { font-size: 1.5rem; } }
 </style>
 </head>
@@ -225,6 +226,7 @@ const hash = location.hash.slice(1).toLowerCase();
 tab = TABS[hash] ? hash : (dayForDate(dateEl.value) || nextTrainingDay(dateEl.value));
 
 function selectTab(k) {
+  if (k !== "resoconto") demo = null;
   tab = k;
   try { history.replaceState(null, "", "#" + k); } catch (e) {}
   renderTabs(); render(); window.scrollTo({ top: 0 });
@@ -292,7 +294,7 @@ function renderDay() {
 // ---------- Resoconto ----------
 function entries() {
   const out = [];
-  for (const [exId, h] of Object.entries(logs)) {
+  for (const [exId, h] of Object.entries(SL())) {
     if (!EXS[exId]) continue;
     for (const [date, e] of Object.entries(h)) if (has(e)) {
       const reps = parseReps(e.r).reduce((a, b) => a + b, 0);
@@ -351,6 +353,40 @@ function niceStep(raw) {
 }
 function fmtNum(v) { return v >= 10000 ? (v / 1000).toFixed(v >= 100000 ? 0 : 1).replace(".", ",") + "k" : String(Math.round(v * 10) / 10).replace(".", ","); }
 
+// ---------- Simulazione (solo in memoria, mai salvata) ----------
+let demo = null;            // null, or { weeks, logs }
+const SL = () => demo ? demo.logs : logs;
+const DEMO_KG = { "l-chestpress": 40, "l-chestfly": 30, "l-ohext": 15, "l-alzlat": 8, "l-panca60": 12, "l-addome": 2.5,
+  "m-stacco": 80, "m-legcurl": 30, "m-legpress": 120, "m-lat": 45, "m-vrow": 40, "m-curlcavo": 20, "m-panca30bic": 10,
+  "v-panca30": 22, "v-chestfly": 32, "v-military": 30, "v-alzlat60": 6, "v-pushdown": 20, "v-french": 20,
+  "s-pressa": 110, "s-legext": 40, "s-bulgarian": 14, "s-pulley": 40, "s-rematore": 50, "s-curlhammer": 12 };
+function makeDemo(weeks) {
+  let seed = 7;
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const out = {};
+  const ws = new Date(weekStart(todayKey()) + "T12:00");
+  const offs = { lun: 0, mer: 2, ven: 4, sab: 5 };
+  for (let w = weeks - 1; w >= 0; w--) {
+    const prog = weeks - 1 - w;   // 0 = first week
+    for (const [id, { ex, dayKey }] of Object.entries(EXS)) {
+      const d = new Date(ws); d.setDate(d.getDate() - 7 * w + offs[dayKey]);
+      const m = String(ex.s).match(/(\d+)\s*×\s*(\d+)/);
+      let r;
+      if (m) {
+        const sets = +m[1], target = +m[2];
+        r = Array.from({ length: sets }, (_, i) => Math.max(1, target + (prog > 1 ? 1 : 0) - (i === sets - 1 && rnd() < .6 ? 1 + Math.floor(rnd() * 2) : 0)));
+        r = r.some((x) => x >= 10) ? r.join(" ") : r.join("");
+      } else r = /max/.test(ex.s) ? String(8 + prog + Math.floor(rnd() * 3)) : String(parseInt(ex.s) || 10);
+      const base = DEMO_KG[id];
+      const kg = base ? String(Math.round((base * (1 + 0.04 * prog)) * 2) / 2).replace(".", ",") : "";
+      (out[id] = out[id] || {})[todayKey(d)] = { r, kg, t: 0 };
+    }
+  }
+  return out;
+}
+function startDemo(weeks) { demo = { weeks, logs: makeDemo(weeks) }; chartEx = null; renderStats(); window.scrollTo({ top: 0 }); }
+function stopDemo() { demo = null; chartEx = null; render(); }
+
 function renderStats() {
   const list = $("list");
   const all = entries();
@@ -369,7 +405,7 @@ function renderStats() {
   // per-exercise table
   const rows = [];
   for (const id of Object.keys(EXS)) {
-    const h = logs[id] || {};
+    const h = SL()[id] || {};
     const ds = Object.keys(h).filter((k) => has(h[k])).sort();
     if (!ds.length) continue;
     const kgs = ds.map((k) => kgNum(h[k].kg)).filter((v) => v != null);
@@ -381,7 +417,7 @@ function renderStats() {
 
   let exChart = '<p class="empty">Segna reps e kg di un esercizio per vedere il suo andamento.</p>';
   if (chartEx) {
-    const h = logs[chartEx];
+    const h = SL()[chartEx];
     const ds = Object.keys(h).filter((k) => has(h[k])).sort();
     const kgPts = ds.filter((k) => kgNum(h[k].kg) != null).map((k) => ({ label: fmtDate(k), value: kgNum(h[k].kg) }));
     const repPts = ds.map((k) => ({ label: fmtDate(k), value: parseReps(h[k].r).reduce((a, b) => a + b, 0) })).filter((p) => p.value > 0);
@@ -389,7 +425,12 @@ function renderStats() {
       + (repPts.length ? `<div class="ex-note">Ripetizioni totali</div>${lineChart(repPts, "reps")}` : "");
   }
 
-  list.innerHTML = `
+  list.innerHTML = (demo ? `
+    <section class="panel demo">
+      <div class="panel-head"><h2>Simulazione · ${demo.weeks === 1 ? "1 settimana" : demo.weeks + " settimane"}</h2><button class="btn small" id="demoStop">Esci</button></div>
+      <div class="ex-note">Dati inventati per vedere come diventano le statistiche. Non vengono salvati e non toccano i tuoi numeri.</div>
+      <div class="btns"><button class="btn ghost small" id="demo1">1 settimana</button><button class="btn ghost small" id="demo4">1 mese</button><button class="btn ghost small" id="demo12">3 mesi</button></div>
+    </section>` : "") + `
     <div class="tiles">
       <div class="tile"><div class="k">Questa settimana</div><div class="v">${weekSessions}/4</div></div>
       <div class="tile"><div class="k">Allenamenti</div><div class="v">${dates.length}</div></div>
@@ -416,6 +457,14 @@ function renderStats() {
           <td class="num ${r.diff > 0 ? "up" : ""}">${r.diff > 0 ? "+" + fmtNum(r.diff) + " kg" : "–"}</td></tr>`).join("")}</tbody>
       </table></div>` : '<p class="empty">Qui compariranno il carico massimo e quanto sei migliorato per ogni esercizio.</p>'}
     </section>`;
+  if (!demo) list.insertAdjacentHTML("beforeend", `
+    <section class="panel">
+      <h2>Simulazione</h2>
+      <div class="ex-note">Guarda come saranno le statistiche con dati di esempio. Niente viene salvato.</div>
+      <div class="btns"><button class="btn ghost small" id="demo1">1 settimana</button><button class="btn ghost small" id="demo4">1 mese</button><button class="btn ghost small" id="demo12">3 mesi</button></div>
+    </section>`);
+  for (const n of [1, 4, 12]) $("demo" + n).onclick = () => startDemo(n);
+  if (demo) $("demoStop").onclick = stopDemo;
   const sel = $("exsel");
   if (sel) sel.onchange = () => { chartEx = sel.value; renderStats(); };
 }
