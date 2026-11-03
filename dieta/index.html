@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#C4622D">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Piano Alimentare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column; day-type switch, then tabs (Oggi / Spesa / Consigli / Stats); one card per meal */
+:root {
+  --bg: #F4F0EC;
+  --card: #FFFFFF;
+  --fg: #1C1714;
+  --muted: #6E625A;
+  --line: #E1D8D0;
+  --accent: #C4622D;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #F6E3D6;
+  --ok: #2E7D4F;
+  --water: #2F78B7;
+  --err: #B3261E;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, sans-serif;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #141110; --card: #1F1A18; --fg: #EFE8E3; --muted: #A89A90; --line: #352D29;
+  --accent: #EE8A52; --accent-ink: #2A1306; --accent-soft: #3A251A; --ok: #5FC48A; --water: #6FB2EA; --err: #F2827A; color-scheme: dark } }
+
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.4; }
+[hidden] { display: none !important; }
+.wrap { max-width: 640px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 48px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--display); font-size: 2rem; margin: 0; text-transform: uppercase; }
+h2 { font-family: var(--display); font-size: 1.3rem; text-transform: uppercase; letter-spacing: .04em; margin: 0; }
+.head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.date { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .9rem; }
+.date input { font: inherit; color: var(--fg); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+.status { font-size: .8rem; color: var(--muted); min-height: 1.2em; margin-top: 4px; }
+.status.err { color: var(--err); }
+
+.types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+.types button { font: 600 .95rem/1.15 var(--body); padding: 10px 6px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer; }
+.types button small { display: block; font-weight: 400; color: var(--muted); font-size: .75rem; }
+.types button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+
+nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding-block: 12px; }
+nav button { font-family: var(--display); font-size: 1.05rem; text-transform: uppercase; letter-spacing: .03em; padding: 10px 0; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer; }
+nav button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.list { display: flex; flex-direction: column; gap: 10px; }
+.panel, .meal { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.meal.done { border-color: var(--ok); }
+.meal-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.meal-time { font-family: var(--display); font-size: 1.1rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.check { display: inline-flex; align-items: center; gap: 6px; font: 600 .9rem var(--body); padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; white-space: nowrap; }
+.check[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: #fff; }
+.items { display: flex; flex-direction: column; }
+.item { border-top: 1px solid var(--line); padding-block: 8px; }
+.item:first-child { border-top: 0; padding-top: 0; }
+.item-row { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; width: 100%; background: none; border: 0; color: inherit; font: inherit; text-align: left; padding: 0; }
+button.item-row { cursor: pointer; }
+.item-name { font-weight: 600; min-width: 0; }
+.item-q { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.swap { font-size: .8rem; color: var(--accent); font-weight: 600; }
+.alts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.alts button { font: 500 .85rem var(--body); padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+.alts button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.note { font-size: .85rem; color: var(--accent); font-weight: 600; }
+
+.water { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.glasses { display: flex; gap: 4px; flex-wrap: wrap; }
+.glass { width: 22px; height: 28px; border: 2px solid var(--water); border-top: 0; border-radius: 0 0 6px 6px; background: transparent; padding: 0; cursor: pointer; }
+.glass.on { background: var(--water); }
+.water-n { font: 700 1.4rem var(--display); color: var(--water); font-variant-numeric: tabular-nums; }
+.ex-note { color: var(--muted); font-size: .85rem; }
+
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; min-width: 0; }
+.tile .k { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.tile .v { font: 700 1.8rem/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font: 17px var(--body); }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .bar { fill: var(--accent); }
+.chart .barW { fill: var(--water); }
+.chart .val { fill: var(--fg); font-weight: 600; }
+.hbar { display: grid; grid-template-columns: minmax(0, 9rem) 1fr auto; gap: 8px; align-items: center; font-size: .9rem; }
+.hbar .track { height: 10px; background: var(--bg); border-radius: 5px; overflow: hidden; }
+.hbar .fill { height: 100%; background: var(--accent); border-radius: 5px; }
+.hbar .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbars { display: flex; flex-direction: column; gap: 6px; }
+.empty { color: var(--muted); font-size: .9rem; }
+
+.shop h3 { font: 600 .8rem var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 6px 0 2px; }
+.shop label { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+.shop input { width: 20px; height: 20px; accent-color: var(--accent); }
+.shop label.got span { text-decoration: line-through; color: var(--muted); }
+.tips { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { font: 600 .95rem var(--body); padding: 8px 14px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.small { padding: 6px 12px; font-size: .9rem; }
+.btn.dirty::after { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--err); margin-left: 6px; vertical-align: middle; }
+.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 12px; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.panel.demo { border-color: var(--accent); background: var(--accent-soft); }
+#syncPanel { margin-top: 8px; }
+@media (max-width: 380px) { nav button { font-size: .95rem; } .tile .v { font-size: 1.5rem; } .types button { font-size: .85rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Piano Alimentare</h1>
+    <div class="head-actions">
+      <label class="date">Giorno <input type="date" id="date"></label>
+      <button class="btn ghost small" id="installBtn" hidden>Installa app</button>
+      <button class="btn small" id="syncBtn">Sincronizza</button>
+    </div>
+  </header>
+  <div class="status" id="status"></div>
+  <section class="panel" id="syncPanel" hidden>
+    <div class="panel-head"><h2>Sincronizza con il NAS</h2><button class="btn ghost small" id="syncClose">Chiudi</button></div>
+    <div id="syncBody"></div>
+    <div class="status" id="syncMsg"></div>
+    <div class="ex-note" id="syncInfo"></div>
+  </section>
+  <div class="types" id="types" role="group" aria-label="Tipo di giornata"></div>
+  <nav role="tablist" id="tabs"></nav>
+  <main class="list" id="list"></main>
+</div>
+
+<script>
+// ---------- Piano (dal PDF del nutrizionista) ----------
+const g = (s) => s.split("|").map((x) => { const i = x.lastIndexOf(" "); const m = x.match(/^(.*?)\s+(\d[\d,.]*\s*(?:g|cucchiai|cucchiaino|uova|banana|mela|pera|kiwi|pesca|arancia|mozzarella)|\d+\s*\w+)$/); return m ? [m[1], m[2]] : [x, ""]; });
+const CEREALI40 = "Fiocchi d'avena 40 g|Muesli 40 g|Corn Flakes integrali 40 g|All-Bran 40 g|Granola 40 g";
+const YOG5 = "Yogurt greco 5 cucchiai|Yogurt greco 0% grassi 150 g|Quark 150 g|Ricotta vaccina 150 g|Yogurt intero bianco 150 g";
+const DOLCE = "Miele 1 cucchiaino|Marmellata 15 g|Sciroppo d'acero 10 g|Crema di nocciole 100% 10 g|Confettura di frutta 15 g";
+const PROT = ["Petto di pollo 200 g", "Salmone 200 g", "Tonno al naturale 160 g", "Bistecca di manzo 200 g", "Merluzzo 250 g", "Orata 200 g", "Petto di tacchino 200 g"];
+const protFirst = (n) => [PROT.find((p) => p.startsWith(n)), ...PROT.filter((p) => !p.startsWith(n))].join("|");
+const VERD = (first) => { const v = ["Zucchine", "Melanzane", "Spinaci", "Broccoli", "Fagiolini", "Cavolfiore", "Lattuga"]; return [first, ...v.filter((x) => x !== first)].map((x) => x + " 200 g").join("|"); };
+const OLIO = "Olio extravergine d'oliva 2 cucchiai";
+const PANE = "Pane comune 40 g|Pane integrale 40 g|Pane di segale 40 g|Crackers 25 g|Gallette di riso 30 g|Grissini 30 g";
+const PRIMO70 = "Pasta 70 g|Riso 70 g|Farro 70 g|Orzo perlato 70 g|Pasta integrale 70 g|Riso integrale 70 g|Gnocchi di patate 150 g";
+const FRUTTA = "Banana 1 banana|Mela 1 mela|Pera 1 pera|Kiwi 2 kiwi|Pesca 1 pesca";
+
+const PLAN = {
+  riposo: { name: "Riposo", sub: "Non attività", full: "Giorno di NON attività", meals: [
+    { id: "col", n: "Colazione", h: "07:00", items: [CEREALI40, YOG5, DOLCE] },
+    { id: "pra", n: "Pranzo", h: "12:30", items: [protFirst("Petto di pollo"), VERD("Zucchine"), OLIO, PANE] },
+    { id: "spu", n: "Spuntino pomeridiano", h: "16:30", items: [FRUTTA] },
+    { id: "cen", n: "Cena", h: "20:00", note: "Primo + secondo + verdure", items: [PRIMO70,
+      "Tonno al naturale 150 g|Petto di pollo 150 g|Merluzzo 200 g|Uova intere 3 uova|Fagioli borlotti 200 g|Bresaola 100 g|Mozzarella 1 mozzarella",
+      VERD("Spinaci"), OLIO] }
+  ]},
+  corsa: { name: "Corsa", sub: "serale", full: "Corsa serale", meals: [
+    { id: "col", n: "Colazione", h: "07:30", items: [CEREALI40 + "|Farro soffiato 40 g", YOG5, DOLCE] },
+    { id: "pra", n: "Pranzo", h: "12:30", note: "C'è un primo piatto (e anche un secondo)", items: [protFirst("Salmone"), VERD("Zucchine"), OLIO,
+      "Riso 80 g|Riso brillato 80 g|Pasta di semola 80 g|Orzo perlato 80 g|Farro perlato 80 g|Quinoa 80 g|Riso integrale 80 g|Pasta integrale 80 g|Couscous 80 g|Gnocchi di patate 160 g|Tortellini freschi 90 g|Trofie fresche Esselunga 100 g"] },
+    { id: "spu", n: "Spuntino pomeridiano", h: "16:30", note: "2 frutti medi", items: [
+      "Banana 1 banana|Mela 1 mela|Pera 1 pera|Arancia 1 arancia|Kiwi 2 kiwi|Pesca 1 pesca|Mandarini 200 g",
+      "Mela (o altro frutto medio) 200 g"] },
+    { id: "cen", n: "Cena", h: "20:00", items: [PRIMO70,
+      "Uova intere 3 uova|Tonno al naturale 150 g|Petto di pollo 150 g|Merluzzo 200 g|Fagioli borlotti 200 g|Bresaola 100 g|Mozzarella 1 mozzarella",
+      VERD("Spinaci"), OLIO] },
+    { id: "ser", n: "Spuntino serale", h: "22:00", items: ["Yogurt alla frutta 125 g"] }
+  ]},
+  pesi: { name: "Pesi", sub: "mattino", full: "Pesi mattino", meals: [
+    { id: "col", n: "Colazione", h: "07:30", note: "Cereali un po' di più", items: [
+      "Fiocchi d'avena 60 g|Muesli 60 g|Corn Flakes integrali 60 g|All-Bran 60 g|Granola 60 g|Farro soffiato 60 g",
+      "Yogurt greco 7 cucchiai|Yogurt greco 0% grassi 200 g|Quark 200 g|Ricotta vaccina 200 g",
+      "Miele 1 cucchiaino|Marmellata 15 g|Sciroppo d'acero 10 g|Zucchero di canna 10 g|Crema di nocciole 100% 10 g|Confettura di frutta 15 g"] },
+    { id: "pra", n: "Pranzo", h: "12:30", items: [protFirst("Bistecca di manzo"), VERD("Zucchine"), OLIO, PANE,
+      "Grana Padano DOP 30 g|Mozzarella 50 g|Ricotta di vacca 50 g"] },
+    { id: "spu", n: "Spuntino pomeridiano", h: "16:30", items: [FRUTTA] },
+    { id: "cen", n: "Cena", h: "20:00", items: [PRIMO70,
+      "Merluzzo 200 g|Tonno al naturale 150 g|Petto di pollo 150 g|Uova intere 3 uova|Salmone 120 g|Fagioli borlotti 200 g|Bresaola 100 g",
+      VERD("Spinaci"), OLIO] },
+    { id: "ser", n: "Spuntino serale", h: "22:00", items: ["Yogurt alla frutta 125 g"] }
+  ]}
+};
+for (const d of Object.values(PLAN)) for (const m of d.meals) m.items = m.items.map(g);
+
+const SHOP = [
+  ["Cereali e derivati", "Fiocchi d'avena, Muesli, Corn Flakes integrali, All-Bran, Granola, Farro soffiato, Pane comune, Pane integrale, Pane di segale, Crackers, Gallette di riso, Grissini, Pasta, Pasta integrale, Riso, Riso integrale, Farro, Orzo perlato, Quinoa, Couscous"],
+  ["Pasta fresca", "Gnocchi di patate, Tortellini freschi, Trofie fresche Esselunga"],
+  ["Verdura", "Zucchine, Spinaci, Broccoli, Melanzane, Fagiolini, Cavolfiore, Lattuga"],
+  ["Frutta", "Banana, Mela, Pera, Kiwi, Pesca, Arancia, Mandarini"],
+  ["Carne", "Petto di pollo, Petto di tacchino, Bistecca di manzo, Bresaola"],
+  ["Pesce", "Salmone, Merluzzo, Orata, Tonno al naturale"],
+  ["Uova e legumi", "Uova, Fagioli borlotti"],
+  ["Latticini", "Yogurt greco, Yogurt alla frutta, Quark, Ricotta, Mozzarella, Grana Padano DOP"],
+  ["Dispensa", "Olio extravergine d'oliva, Miele, Marmellata, Confettura di frutta, Sciroppo d'acero, Zucchero di canna, Crema di nocciole 100%"]
+];
+const TIPS = [
+  "Acqua: 2–2,5 litri al giorno.",
+  "I pesi sono a crudo. Frutta e verdura non serve pesarle.",
+  "Verdura: puoi mangiarne di più e anche di altri tipi, pure in mix (es. lattuga + pomodori).",
+  "Pasti liberi (facoltativi): massimo 2 a settimana.",
+  "Condimenti: tranne l'olio, il resto è libero e facoltativo. Spezie libere.",
+  "Cerca di ruotare le diverse alternative dei cibi."
+];
+const TABS = { oggi: "Oggi", spesa: "Spesa", consigli: "Consigli", stats: "Stats" };
+const GLASS_ML = 250, WATER_GOAL = 9;   // 9 bicchieri ≈ 2,25 L
+
+// ---------- Helpers ----------
+const $ = (id) => document.getElementById(id);
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function todayKey(d = new Date()) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function fmtDate(key) { const [, m, d] = key.split("-"); return d + "/" + m; }
+function addDays(key, n) { const d = new Date(key + "T12:00"); d.setDate(d.getDate() + n); return todayKey(d); }
+function setStatus(t, err) { $("status").textContent = t; $("status").classList.toggle("err", !!err); }
+
+// ---------- Data ----------
+// days[date] = { type, meals: { mealId: { done, pick: { itemIndex: optionIndex } } }, water, t }
+const KEY = "dieta-days", SHOPKEY = "dieta-spesa", META = "dieta-sync", FILE = "dieta-dati.json";
+const days = {};
+try { Object.assign(days, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+let shop = {};
+try { shop = JSON.parse(localStorage.getItem(SHOPKEY) || "{}"); } catch (e) {}
+let tab = TABS[location.hash.slice(1)] ? location.hash.slice(1) : "oggi";
+let demo = null;
+const dateEl = $("date");
+dateEl.value = todayKey();
+
+function lastType(before) {
+  const ks = Object.keys(days).filter((k) => k < before && days[k].type).sort();
+  return ks.length ? days[ks[ks.length - 1]].type : "riposo";
+}
+function day(key = dateEl.value) { return days[key] || { type: lastType(key), meals: {}, water: 0, t: 0 }; }
+function touch(key, d) { d.t = Date.now(); days[key] = d; queueSave(); }
+
+function persist() {
+  try { localStorage.setItem(KEY, JSON.stringify(days)); return true; }
+  catch (e) { setStatus("Non riesco a salvare sul dispositivo (memoria piena o bloccata).", true); return false; }
+}
+let saveTimer;
+function queueSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { if (persist()) setStatus("Salvato sul dispositivo ✓"); refreshSyncInfo(); }, 300);
+}
+
+// ---------- Render: day types + tabs ----------
+function renderTypes() {
+  const cur = day().type;
+  $("types").innerHTML = "";
+  for (const [k, p] of Object.entries(PLAN)) {
+    const b = document.createElement("button");
+    b.id = "type-" + k;
+    b.setAttribute("aria-pressed", k === cur);
+    b.innerHTML = `${esc(p.name)}<small>${esc(p.sub)}</small>`;
+    b.onclick = () => { const d = day(); d.type = k; touch(dateEl.value, d); renderTypes(); render(); };
+    $("types").appendChild(b);
+  }
+  $("types").hidden = tab !== "oggi";
+}
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  for (const [k, label] of Object.entries(TABS)) {
+    const b = document.createElement("button");
+    b.id = "tab-" + k; b.setAttribute("role", "tab"); b.textContent = label;
+    b.setAttribute("aria-selected", k === tab);
+    b.onclick = () => { if (k !== "stats") demo = null; tab = k; try { history.replaceState(null, "", "#" + k); } catch (e) {} renderTabs(); renderTypes(); render(); window.scrollTo({ top: 0 }); };
+    $("tabs").appendChild(b);
+  }
+}
+function render() { ({ oggi: renderToday, spesa: renderShop, consigli: renderTips, stats: renderStats })[tab](); }
+
+// ---------- Oggi ----------
+const open = {};   // which item has its alternatives open
+function renderToday() {
+  const key = dateEl.value, d = day(key), plan = PLAN[d.type];
+  const list = $("list");
+  const w = d.water || 0;
+  list.innerHTML = `
+    <section class="panel">
+      <div class="water">
+        <div><h2>Acqua</h2><div class="ex-note">Obiettivo 2–2,5 L · un bicchiere = ${GLASS_ML} ml</div></div>
+        <div class="water-n">${(w * GLASS_ML / 1000).toFixed(2).replace(".", ",")} L</div>
+      </div>
+      <div class="glasses" id="glasses">${Array.from({ length: Math.max(WATER_GOAL + 1, w + 1) }, (_, i) => `<button class="glass${i < w ? " on" : ""}" data-i="${i}" aria-label="Bicchiere ${i + 1}"></button>`).join("")}</div>
+    </section>`;
+  list.querySelectorAll(".glass").forEach((b) => b.onclick = () => {
+    const i = +b.dataset.i, dd = day(key);
+    dd.water = (dd.water || 0) === i + 1 ? i : i + 1;
+    touch(key, dd); renderToday();
+  });
+  for (const m of plan.meals) {
+    const st = (d.meals || {})[m.id] || {};
+    const el = document.createElement("section");
+    el.className = "meal" + (st.done ? " done" : "");
+    el.innerHTML = `
+      <div class="meal-top">
+        <div><h2>${esc(m.n)}</h2><div class="meal-time">${m.h}</div></div>
+        <button class="check" aria-pressed="${!!st.done}" data-act="done">${st.done ? "✓ Fatto" : "Segna fatto"}</button>
+      </div>
+      ${m.note ? `<div class="note">${esc(m.note)}</div>` : ""}
+      <div class="items">${m.items.map((opts, i) => {
+        const p = (st.pick || {})[i] || 0, [n, q] = opts[p], ok = m.id + ":" + i;
+        if (opts.length === 1) return `<div class="item"><div class="item-row"><span class="item-name">${esc(n)}</span><span class="item-q">${esc(q)}</span></div></div>`;
+        return `<div class="item">
+          <button class="item-row" data-act="toggle" data-i="${i}" aria-expanded="${!!open[ok]}">
+            <span class="item-name">${esc(n)} <span class="swap">${open[ok] ? "▲" : "⇄ " + (opts.length - 1) + " alternative"}</span></span><span class="item-q">${esc(q)}</span>
+          </button>
+          ${open[ok] ? `<div class="alts">${opts.map(([an, aq], j) => `<button aria-pressed="${j === p}" data-act="pick" data-i="${i}" data-j="${j}">${esc(an)} · ${esc(aq)}</button>`).join("")}</div>` : ""}
+        </div>`;
+      }).join("")}</div>`;
+    el.onclick = (ev) => {
+      const b = ev.target.closest("[data-act]");
+      if (!b) return;
+      const dd = day(key);
+      dd.meals = dd.meals || {};
+      const ms = dd.meals[m.id] = dd.meals[m.id] || {};
+      if (b.dataset.act === "done") { ms.done = !ms.done; touch(key, dd); }
+      else if (b.dataset.act === "toggle") { open[m.id + ":" + b.dataset.i] = !open[m.id + ":" + b.dataset.i]; }
+      else if (b.dataset.act === "pick") { ms.pick = ms.pick || {}; ms.pick[b.dataset.i] = +b.dataset.j; touch(key, dd); open[m.id + ":" + b.dataset.i] = false; }
+      renderToday();
+    };
+    list.appendChild(el);
+  }
+}
+
+// ---------- Spesa / Consigli ----------
+function renderShop() {
+  $("list").innerHTML = `<section class="panel shop"><div class="panel-head"><h2>Lista della spesa</h2><button class="btn ghost small" id="shopReset">Svuota spunte</button></div>
+    ${SHOP.map(([cat, items]) => `<h3>${esc(cat)}</h3>${items.split(", ").map((it) => `<label class="${shop[it] ? "got" : ""}"><input type="checkbox" data-it="${esc(it)}"${shop[it] ? " checked" : ""}><span>${esc(it)}</span></label>`).join("")}`).join("")}</section>`;
+  $("list").querySelectorAll("input[data-it]").forEach((c) => c.onchange = () => {
+    shop[c.dataset.it] = c.checked; c.parentElement.classList.toggle("got", c.checked);
+    try { localStorage.setItem(SHOPKEY, JSON.stringify(shop)); } catch (e) {}
+  });
+  $("shopReset").onclick = () => { shop = {}; try { localStorage.setItem(SHOPKEY, "{}"); } catch (e) {} renderShop(); };
+}
+function renderTips() {
+  $("list").innerHTML = `<section class="panel"><h2>Raccomandazioni</h2><ul class="tips">${TIPS.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></section>`;
+}
+
+// ---------- Stats ----------
+const SD = () => demo ? demo.days : days;
+function mealsOf(d) { return PLAN[d.type || "riposo"].meals; }
+function makeDemo(n) {
+  let seed = 11; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const out = {}, types = ["pesi", "riposo", "corsa", "pesi", "riposo", "pesi", "riposo"];
+  for (let i = n - 1; i >= 0; i--) {
+    const k = addDays(todayKey(), -i), type = types[(n - 1 - i) % 7], meals = {};
+    for (const m of PLAN[type].meals) {
+      const pick = {};
+      m.items.forEach((o, j) => { if (o.length > 1) pick[j] = Math.floor(rnd() * Math.min(o.length, 4)); });
+      meals[m.id] = { done: rnd() < 0.88, pick };
+    }
+    out[k] = { type, meals, water: 5 + Math.floor(rnd() * 5), t: 0 };
+  }
+  return out;
+}
+function barChart(data, cls, max, fmt) {
+  const W = 600, H = 220, L = 50, R = 8, T = 22, B = 28;
+  const y = (v) => T + (H - T - B) * (1 - v / max);
+  const bw = (W - L - R) / data.length;
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">`;
+  for (const v of [0, max / 2, max]) s += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 5}" text-anchor="end">${fmt(v)}</text>`;
+  const every = Math.ceil(data.length / 7);
+  data.forEach((d, i) => {
+    const x = L + i * bw + bw * 0.15, w = bw * 0.7;
+    if (d.value > 0) s += `<rect class="${cls}" x="${x}" y="${y(Math.min(d.value, max))}" width="${w}" height="${y(0) - y(Math.min(d.value, max))}" rx="3"/>`;
+    if (i % every === 0 || i === data.length - 1) s += `<text x="${x + w / 2}" y="${H - 8}" text-anchor="middle">${d.label}</text>`;
+  });
+  const last = data[data.length - 1];
+  if (last.value > 0) s += `<text class="val" x="${L + (data.length - 1) * bw + bw / 2}" y="${y(Math.min(last.value, max)) - 6}" text-anchor="middle">${fmt(last.value)}</text>`;
+  return s + "</svg>";
+}
+function renderStats() {
+  const D = SD(), today = todayKey();
+  const span = demo ? Math.min(demo.n, 28) : 14;
+  const keys = Array.from({ length: span }, (_, i) => addDays(today, i - span + 1));
+  const logged = Object.keys(D).filter((k) => D[k].t || demo);
+  const pct = (k) => { const d = D[k]; if (!d) return 0; const ms = mealsOf(d); return Math.round(100 * ms.filter((m) => (d.meals || {})[m.id]?.done).length / ms.length); };
+  const last7 = keys.slice(-7);
+  const avg7 = Math.round(last7.reduce((a, k) => a + pct(k), 0) / 7);
+  const wDays = last7.filter((k) => D[k] && D[k].water);
+  const wAvg = wDays.length ? wDays.reduce((a, k) => a + D[k].water, 0) / wDays.length * GLASS_ML / 1000 : 0;
+  // rotation: what was eaten as the protein / primo in the last 14 days
+  const count = {};
+  for (const k of keys) {
+    const d = D[k]; if (!d) continue;
+    for (const m of mealsOf(d)) {
+      const st = (d.meals || {})[m.id]; if (!st || !st.done) continue;
+      m.items.forEach((opts, i) => { if (opts.some((o) => /pollo|Salmone|Tonno|Merluzzo|^Pasta|^Riso/.test(o[0]))) { const n = opts[(st.pick || {})[i] || 0][0]; count[n] = (count[n] || 0) + 1; } });
+    }
+  }
+  const top = Object.entries(count).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const topMax = top.length ? top[0][1] : 1;
+  const typeCount = { riposo: 0, corsa: 0, pesi: 0 };
+  for (const k of last7) if (D[k]) typeCount[D[k].type] = (typeCount[D[k].type] || 0) + 1;
+
+  $("list").innerHTML = (demo ? `
+    <section class="panel demo"><div class="panel-head"><h2>Simulazione · ${demo.n === 7 ? "1 settimana" : "1 mese"}</h2><button class="btn small" id="demoStop">Esci</button></div>
+    <div class="ex-note">Dati inventati per vedere come diventano le statistiche. Non vengono salvati.</div></section>` : "") + `
+    <div class="tiles">
+      <div class="tile"><div class="k">Pasti fatti (7 gg)</div><div class="v">${avg7}%</div></div>
+      <div class="tile"><div class="k">Acqua media</div><div class="v">${wAvg ? wAvg.toFixed(1).replace(".", ",") + " L" : "–"}</div></div>
+      <div class="tile"><div class="k">Giorni segnati</div><div class="v">${logged.length}</div></div>
+    </div>
+    <section class="panel"><h2>Pasti rispettati</h2><div class="ex-note">Percentuale dei pasti segnati come fatti, giorno per giorno</div>
+      ${logged.length ? barChart(keys.map((k) => ({ label: fmtDate(k), value: pct(k) })), "bar", 100, (v) => Math.round(v) + "%") : '<p class="empty">Segna i pasti come fatti per vedere il grafico.</p>'}</section>
+    <section class="panel"><h2>Acqua</h2><div class="ex-note">Litri al giorno · obiettivo 2–2,5 L</div>
+      ${keys.some((k) => D[k] && D[k].water) ? barChart(keys.map((k) => ({ label: fmtDate(k), value: D[k] ? D[k].water * GLASS_ML / 1000 : 0 })), "barW", 3, (v) => v.toFixed(1).replace(".", ",") + " L") : '<p class="empty">Tocca i bicchieri nella scheda Oggi per segnare l\'acqua.</p>'}</section>
+    <section class="panel"><h2>Rotazione cibi</h2><div class="ex-note">Proteine e primi mangiati negli ultimi ${span} giorni. Il piano chiede di variare.</div>
+      ${top.length ? `<div class="hbars">${top.map(([n, c]) => `<div class="hbar"><span class="name">${esc(n)}</span><span class="track"><span class="fill" style="display:block;width:${Math.round(100 * c / topMax)}%"></span></span><span>${c}×</span></div>`).join("")}</div>` : '<p class="empty">Scegli le alternative nei pasti e segnali come fatti: qui vedrai cosa mangi più spesso.</p>'}</section>
+    <section class="panel"><h2>Tipi di giornata (7 gg)</h2>
+      <div class="ex-note">Riposo ${typeCount.riposo} · Corsa serale ${typeCount.corsa} · Pesi mattino ${typeCount.pesi}</div></section>
+    ${demo ? "" : `<section class="panel"><h2>Simulazione</h2><div class="ex-note">Guarda come saranno le statistiche con dati di esempio. Niente viene salvato.</div>
+      <div class="btns"><button class="btn ghost small" id="demo7">1 settimana</button><button class="btn ghost small" id="demo30">1 mese</button></div></section>`}`;
+  if (demo) $("demoStop").onclick = () => { demo = null; renderStats(); };
+  else for (const n of [7, 30]) $("demo" + n).onclick = () => { demo = { n, days: makeDemo(n) }; renderStats(); window.scrollTo({ top: 0 }); };
+}
+
+// ---------- Sync with the NAS file (newer day wins) ----------
+function syncMeta() { try { return JSON.parse(localStorage.getItem(META) || "{}"); } catch (e) { return {}; } }
+function markSynced() { try { localStorage.setItem(META, JSON.stringify({ last: Date.now() })); } catch (e) {} refreshSyncInfo(); }
+function unsynced() { const last = syncMeta().last || 0; return Object.values(days).filter((d) => (d.t || 0) > last).length; }
+function fmtStamp(ms) { const d = new Date(ms); return fmtDate(todayKey(d)) + " alle " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+function merge(incoming) {
+  let n = 0;
+  for (const [k, d] of Object.entries(incoming || {})) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !d || typeof d !== "object" || !PLAN[d.type]) continue;
+    if (!days[k] || (d.t || 0) > (days[k].t || 0)) { days[k] = { type: d.type, meals: d.meals || {}, water: Number(d.water) || 0, t: Number(d.t) || 0 }; n++; }
+  }
+  return n;
+}
+function fileJson() { return JSON.stringify({ app: "piano-alimentare", v: 1, savedAt: new Date().toISOString(), days }); }
+function parseFile(text) { const d = JSON.parse(text); if (!d || d.app !== "piano-alimentare" || typeof d.days !== "object") throw new Error("bad_file"); return d.days; }
+const canPickFile = typeof window.showSaveFilePicker === "function";
+function idb(op, val) {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("dieta", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("kv");
+    r.onerror = () => rej(r.error);
+    r.onsuccess = () => { const st = r.result.transaction("kv", op === "get" ? "readonly" : "readwrite").objectStore("kv"); const q = op === "get" ? st.get("nas") : st.put(val, "nas"); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); };
+  });
+}
+async function syncFile(choose) {
+  let h = choose ? null : await idb("get").catch(() => null);
+  if (!h) { h = await window.showSaveFilePicker({ suggestedName: FILE, types: [{ description: "Dati dieta", accept: { "application/json": [".json"] } }] }); await idb("put", h).catch(() => {}); }
+  if ((await h.queryPermission({ mode: "readwrite" })) !== "granted" && (await h.requestPermission({ mode: "readwrite" })) !== "granted") throw new Error("no_permission");
+  const text = await (await h.getFile()).text();
+  const n = text.trim() ? merge(parseFile(text)) : 0;
+  persist();
+  const w = await h.createWritable(); await w.write(fileJson()); await w.close();
+  return n;
+}
+function syncMsg(t, err) { $("syncMsg").textContent = t; $("syncMsg").classList.toggle("err", !!err); }
+function refreshSyncInfo() {
+  const last = syncMeta().last, n = unsynced();
+  $("syncInfo").textContent = (last ? "Ultima sincronizzazione: " + fmtStamp(last) + ". " : "Mai sincronizzato. ") + (n ? n + (n === 1 ? " giorno da sincronizzare." : " giorni da sincronizzare.") : "Tutto sincronizzato.");
+  $("syncBtn").classList.toggle("dirty", n > 0);
+}
+function renderSync() {
+  const body = $("syncBody");
+  if (canPickFile) {
+    body.innerHTML = `
+      <p class="ex-note">Legge il file dei dati, unisce con quelli di questo dispositivo e lo aggiorna.</p>
+      <div class="btns"><button class="btn" id="syncGo">Sincronizza ora</button><button class="btn ghost" id="syncPick">Scegli un altro file</button></div>
+      <p class="ex-note">La prima volta scegli dove tenere <b>${FILE}</b>: sul PC la cartella <b>DRIVE › App palestra</b> del NAS, sul telefono <b>Download</b> (poi lo copi sul NAS con CX File Explorer). Se il file esiste già conferma "Sostituisci": prima viene letto e unito.</p>`;
+    const run = async (choose) => {
+      syncMsg("Sincronizzazione…");
+      try { const n = await syncFile(choose); markSynced(); render(); renderTypes(); syncMsg("Fatto ✓ " + (n ? n + " giorni nuovi presi dal file." : "Il file è aggiornato.")); }
+      catch (e) {
+        if (e && e.name === "AbortError") return syncMsg("Annullato.");
+        if (e && e.message === "bad_file") return syncMsg("Quel file non è " + FILE + ". Scegli quello giusto con \"Scegli un altro file\".", true);
+        syncMsg("Non riesco a raggiungere il file. Riprova o sceglilo di nuovo.", true);
+      }
+    };
+    $("syncGo").onclick = () => run(false);
+    $("syncPick").onclick = () => run(true);
+  } else {
+    body.innerHTML = `<p class="ex-note">Questo browser non può aprire file direttamente. Usa Chrome.</p>`;
+  }
+}
+$("syncBtn").onclick = () => { const p = $("syncPanel"); p.hidden = !p.hidden; if (!p.hidden) { renderSync(); syncMsg(""); refreshSyncInfo(); } };
+$("syncClose").onclick = () => { $("syncPanel").hidden = true; };
+
+// ---------- Date, new day, install ----------
+dateEl.addEventListener("change", () => { if (!dateEl.value) dateEl.value = todayKey(); renderTypes(); render(); });
+let shownToday = todayKey();
+function checkNewDay() {
+  const now = todayKey(); if (now === shownToday) return;
+  const wasToday = dateEl.value === shownToday; shownToday = now;
+  if (wasToday) { dateEl.value = now; renderTypes(); render(); }
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkNewDay(); });
+window.addEventListener("focus", checkNewDay);
+setInterval(checkNewDay, 60000);
+
+let installEvt = null;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; $("installBtn").hidden = false; });
+$("installBtn").onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; $("installBtn").hidden = true; };
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+renderTabs(); renderTypes(); render(); refreshSyncInfo();
+setStatus("Scegli il tipo di giornata, poi segna i pasti.");
+</script>
+</body>
+</html>
