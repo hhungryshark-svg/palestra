@@ -1,6 +1,6 @@
 {
-  "name": "Scheda Palestra",
-  "short_name": "Palestra",
+  "name": "Allenamento",
+  "short_name": "Allenamento",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

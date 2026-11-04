@@ -1,5 +1,5 @@
 // Keeps the app usable offline. Bump VERSION when the app files change.
-const VERSION = "palestra-v3";
+const VERSION = "allenamento-v1";
 const CORE = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {
